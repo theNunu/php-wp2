@@ -227,7 +227,7 @@ class EclipsoftOnBoarding
         $postFields = $data;
 
         // Adjuntar archivo REAL
-        $postFields['file'] = new \CURLFile(
+        $postFields['file'] = new \CURLFile( //El new CURLFile() es lo que transforma todo en multipart real.
             $file['tmp_name'],
             'application/pdf',
             $file['name']
@@ -239,12 +239,12 @@ class EclipsoftOnBoarding
         // echo '<pre>';
         // var_dump('la data: ', $data);
         $ch = curl_init();
-
+        //CURLFile genera multipart correctamente.
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_RETURNTRANSFER => true, //“No imprimas la respuesta, devuélvemela como string”.
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $postFields,
+            CURLOPT_POSTFIELDS => $postFields, //Aquí PHP detecta el CURLFile y construye multipart.
             CURLOPT_HTTPHEADER => [
                 "Authorization: Bearer {$token}"
                 // 🚨 NO pongas Content-Type
@@ -281,6 +281,57 @@ class EclipsoftOnBoarding
             "url" => $decode['url'] ?? null,
             "detail" => $decode['detail'] ?? null
         ];
+    }
+
+    public static function completeSign($requestId, $token)
+    {
+        if (empty($requestId) || empty($token)) {
+            return [
+                "status" => "error",
+                "msg" => "RequestId o Token vacío"
+            ];
+        }
+
+        $url = self::obtenerBasePath() . "/api/complete-sign";
+
+        $ch = curl_init();
+
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => [], // si no requiere body
+            CURLOPT_HTTPHEADER => [
+                "Authorization: Bearer {$token}",
+                "Cookie: onb_request={$requestId}",
+                "User-Agent: Mozilla/5.0",
+                "X-Forwarded-For: " . $_SERVER['REMOTE_ADDR'],
+            ],
+            CURLOPT_TIMEOUT => 120,
+        ]);
+
+        $response = curl_exec($ch);
+
+        if (curl_errno($ch)) {
+            return [
+                "status" => "error",
+                "msg" => curl_error($ch)
+            ];
+        }
+
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        $decode = json_decode($response, true);
+
+        if ($httpCode !== 200) {
+            return $decode ?: [
+                "status" => "error",
+                "msg" => "Error HTTP: {$httpCode}",
+                "raw" => $response
+            ];
+        }
+
+        return $decode;
     }
 
 

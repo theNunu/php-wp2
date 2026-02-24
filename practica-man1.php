@@ -33,11 +33,8 @@ add_action('wp_ajax_nopriv_dpti_login', 'dpti_login');
 function dpti_login()
 {
     // echo '<pre>'; var_dump( 'waza'); echo '</pre>'; die();
-
     $token = EclipsoftOnBoarding::generateToken();
-
     // echo '<pre>'; var_dump( 'el token: ', $token); echo '</pre>'; die();
-
     // 🚨 401 EN UNA SOLA LINEA
     if (!$token)
         wp_send_json(["msg" => "No autorizado"], 401);
@@ -56,7 +53,6 @@ function dpti_login()
         'email',
         'phoneNumber',
         'reason',
-        // 'file',
         'typeSign',
     ];
 
@@ -79,19 +75,6 @@ function dpti_login()
         ], 400);
     }
 
-    //     if (!isset($_POST['email'])) {
-    //     wp_send_json_error('No se recibió email.');
-    // }
-
-    // $email = sanitize_email($_POST['email']);
-
-    // // Validar formato de email
-    // if (!is_email($email)) {
-    //     wp_send_json_error('Formato de correo electrónico inválido.');
-    // }
-    // Filter_var($email, FILTER_VALIDATE_EMAIL);
-
-
     $data = [
         'nui' => sanitize_text_field($_POST['nui']),
         'givenName' => sanitize_text_field($_POST['givenName']),
@@ -105,47 +88,40 @@ function dpti_login()
         'email' => sanitize_email($_POST['email']),
         'phoneNumber' => sanitize_text_field($_POST['phoneNumber']),
         'reason' => sanitize_text_field($_POST['reason']),
-        // 'file' => sanitize_text_field($_POST['file']),
         'typeSign' => sanitize_text_field($_POST['typeSign']),
-
         'clientCode' => sanitize_text_field($_POST['clientCode'] ?? ''),
         'contractAmount' => sanitize_text_field($_POST['contractAmount'] ?? ''),
         'personalized_template_email_reception' => sanitize_text_field($_POST['personalized_template_email_reception'] ?? ''),
 
     ];
-    //         echo "<pre>";
-// var_dump($data);
-// echo "</pre>";
-// die();
-// var_dump('el email: ',$data['email']);
-// die();
 
     $file = $_FILES['file'];
-
-    // $dataNew = [
-    //     'data' => $data,
-    //     'file' => $file
-    // ];
-
 
     if (!$token) {
         wp_send_json_error('No se pudo generar token');
     }
 
-    // 👇 AHORA LE PASAS EL TOKEN A SERVICE
     $response = EclipsoftOnBoarding::crearSolicitud($data, $token, $file);
 
+    // $response = EclipsoftOnBoarding::crearSolicitud($data, $token, $file);
 
-    // function request infro
+    if (!isset($response['requestId'])) {
+        wp_send_json([
+            'mi_res' => $response,
+        ]);
+    }
 
-    // $RESPUESTA = [];
-    // $id = $RESPUESTA['requestid'];
+    $requestId = $response['requestId'];
 
-    //function complete sign ing  ===>>> $id, $token
+    $complete = EclipsoftOnBoarding::completeSign($requestId, $token);
 
-    // wp_send_json(['token_iddd' => $token]);
     wp_send_json([
-        'mi_res' => $response,
+        // 'request_information' => $response,
+        'complete_sign' => $complete,
     ]);
+
+    // wp_send_json([
+    //     'mi_res' => $response,
+    // ]);
 
 }
