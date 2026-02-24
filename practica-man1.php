@@ -21,26 +21,28 @@ function dpti_saludar()
 }
 
 add_action('wp_ajax_dpti_login', 'dpti_login');
-    add_action('wp_ajax_nopriv_dpti_login', 'dpti_login');
-    //AuthenticationToken dpti_authentication_token
-    // function dpti_login() {
-    // echo "¡Hola, Mundo!";
-    //     $res = DptiEclipsoftOnBoarding::generateToken();
-        
-    //     wp_send_json($res);
-    // }
+add_action('wp_ajax_nopriv_dpti_login', 'dpti_login');
+//AuthenticationToken dpti_authentication_token
+// function dpti_login() {
+// echo "¡Hola, Mundo!";
+//     $res = DptiEclipsoftOnBoarding::generateToken();
 
-    function dpti_login() {
-        // echo '<pre>'; var_dump( 'waza'); echo '</pre>'; die();
+//     wp_send_json($res);
+// }
 
-        $token = EclipsoftOnBoarding::generateToken();
+function dpti_login()
+{
+    // echo '<pre>'; var_dump( 'waza'); echo '</pre>'; die();
 
-        // echo '<pre>'; var_dump( 'el token: ', $token); echo '</pre>'; die();
+    $token = EclipsoftOnBoarding::generateToken();
 
-        // 🚨 401 EN UNA SOLA LINEA
-        if(!$token) wp_send_json(["msg"=>"No autorizado"],401);
+    // echo '<pre>'; var_dump( 'el token: ', $token); echo '</pre>'; die();
 
-            // Validar obligatorios
+    // 🚨 401 EN UNA SOLA LINEA
+    if (!$token)
+        wp_send_json(["msg" => "No autorizado"], 401);
+
+    // Validar obligatorios
     $required = [
         'nui',
         'givenName',
@@ -55,12 +57,7 @@ add_action('wp_ajax_dpti_login', 'dpti_login');
         'phoneNumber',
         'reason',
         // 'file',
-        'reason',
         'typeSign',
-
-        // 'clientCode',
-        // 'contractAmount',
-        // 'personalized_template_email_reception'
     ];
 
 
@@ -74,7 +71,7 @@ add_action('wp_ajax_dpti_login', 'dpti_login');
         }
     }
 
-     // 🔴 Validar archivo obligatorio correctamente
+    // 🔴 Validar archivo obligatorio correctamente
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== 0) {
         wp_send_json([
             "status" => "error",
@@ -95,8 +92,8 @@ add_action('wp_ajax_dpti_login', 'dpti_login');
     // Filter_var($email, FILTER_VALIDATE_EMAIL);
 
 
-        $data = [
-            'nui' => sanitize_text_field($_POST['nui']),
+    $data = [
+        'nui' => sanitize_text_field($_POST['nui']),
         'givenName' => sanitize_text_field($_POST['givenName']),
         'secondName' => sanitize_text_field($_POST['secondName']),
         'surname1' => sanitize_text_field($_POST['surname1']),
@@ -105,7 +102,7 @@ add_action('wp_ajax_dpti_login', 'dpti_login');
         'city' => sanitize_text_field($_POST['city']),
         'country' => sanitize_text_field($_POST['country']),
         'address' => sanitize_text_field($_POST['address']),
-        'email' => sanitize_text_field($_POST['email']),
+        'email' => sanitize_email($_POST['email']),
         'phoneNumber' => sanitize_text_field($_POST['phoneNumber']),
         'reason' => sanitize_text_field($_POST['reason']),
         // 'file' => sanitize_text_field($_POST['file']),
@@ -115,35 +112,40 @@ add_action('wp_ajax_dpti_login', 'dpti_login');
         'contractAmount' => sanitize_text_field($_POST['contractAmount'] ?? ''),
         'personalized_template_email_reception' => sanitize_text_field($_POST['personalized_template_email_reception'] ?? ''),
 
-        ];
-//         echo "<pre>";
+    ];
+    //         echo "<pre>";
 // var_dump($data);
 // echo "</pre>";
 // die();
 // var_dump('el email: ',$data['email']);
 // die();
 
-        $file = $_FILES['file'];
+    $file = $_FILES['file'];
+
+    // $dataNew = [
+    //     'data' => $data,
+    //     'file' => $file
+    // ];
 
 
-        if(!$token){
-            wp_send_json_error('No se pudo generar token');
-        }
-
-        // 👇 AHORA LE PASAS EL TOKEN A SERVICE
-        $response = EclipsoftOnBoarding::crearSolicitud($data, $token,$file);
-
-
-        // function request infro
-
-        // $RESPUESTA = [];
-        // $id = $RESPUESTA['requestid'];
-
-        //function complete sign ing  ===>>> $id, $token
-        
-        // wp_send_json(['token_iddd' => $token]);
-        wp_send_json([
-            'mi_res' => $response,
-        ]);
-
+    if (!$token) {
+        wp_send_json_error('No se pudo generar token');
     }
+
+    // 👇 AHORA LE PASAS EL TOKEN A SERVICE
+    $response = EclipsoftOnBoarding::crearSolicitud($data, $token, $file);
+
+
+    // function request infro
+
+    // $RESPUESTA = [];
+    // $id = $RESPUESTA['requestid'];
+
+    //function complete sign ing  ===>>> $id, $token
+
+    // wp_send_json(['token_iddd' => $token]);
+    wp_send_json([
+        'mi_res' => $response,
+    ]);
+
+}

@@ -185,9 +185,11 @@ class EclipsoftOnBoarding
 
     public static function crearSolicitud($data, $token, $file)
     {
-        // echo '<pre>'; var_dump( 'el token: ', $token, 'la data: ',$data,'archivo: ', $file); echo '</pre>'; die();
         if (empty($token)) {
-            return false;
+            return [
+                "status" => "error",
+                "msg" => "Token vacío"
+            ];
         }
 
         // =========================
@@ -207,7 +209,7 @@ class EclipsoftOnBoarding
         // =========================
         // 2️⃣ VALIDAR NOMBRE
         // =========================
-        $fileName = strtoupper($file['name']); // Para evitar problemas de mayúsculas
+        $fileName = strtoupper($file['name']);
 
         if (
             strpos($fileName, 'CONTRATO') === false &&
@@ -215,81 +217,70 @@ class EclipsoftOnBoarding
         ) {
             return [
                 "status" => "error",
-                "msg" => "El nombre del archivo debe contener la palabra CONTRATO o NEGADA"
+                "msg" => "El nombre del archivo debe contener CONTRATO o NEGADA"
             ];
         }
 
-
         $url = self::obtenerBasePath() . "/api/request-information";
-        //  $url = self::obtenerBasePath()."/api/authenticate";
 
-        $headers = [
-            'Authorization' => "Bearer " . $token,
-            'Content-Type' => 'multipart/form-data'
-            // 'Content-type' => 'application/json'
-        ];
-        // echo "<pre>";
-// var_dump('mis datos: ',$data);
-// echo "</pre>";
+        // 🔥 IMPORTANTE: construir multipart real
+        $postFields = $data;
 
+        // Adjuntar archivo REAL
+        $postFields['file'] = new \CURLFile(
+            $file['tmp_name'],
+            'application/pdf',
+            $file['name']
+        );
 
-        $args = [
-            'body' => $data,
-            'method' => 'POST',
-            'headers' => $headers,
-            'timeout' => 100
-        ];
+        // =========================
+        // 3️⃣ cURL: Detecta que hay un archivo, Cambia el Content-Type a multipart/form-data
+        // =========================
+        // echo '<pre>';
+        // var_dump('la data: ', $data);
+        $ch = curl_init();
 
-        $response = wp_remote_post($url, $args);
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $postFields,
+            CURLOPT_HTTPHEADER => [
+                "Authorization: Bearer {$token}"
+                // 🚨 NO pongas Content-Type
+            ],
+            CURLOPT_TIMEOUT => 120,
+        ]);
 
-        echo "<pre>";
-        var_dump('la respuestaaa: ', $response);
-        echo "</pre>";
-        die();
+        $response = curl_exec($ch);
 
-        if (is_wp_error($response)) {
-            return false;
+        if (curl_errno($ch)) {
+            return [
+                "status" => "error",
+                "msg" => curl_error($ch)
+            ];
         }
 
-        $body = wp_remote_retrieve_body($response);
-        // $body = wp_remote_retrieve_body($response);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-        echo "<pre>";
-        var_dump('el cuerpoo: ', $body);
-        echo "</pre>";
-        die();
-        $decode = json_decode($body, true);
+        // curl_close($ch);
 
-        // 🔥 CAPTURAR RESPUESTA REAL DEL API
-        $requestId = $decode['requestId'] ?? null;
-        $link = $decode['url'] ?? $decode['link'] ?? null;
+        $decode = json_decode($response, true);
 
-        if (!$requestId || !$link) {
-            return false;
+        if ($httpCode !== 200) {
+            return $decode ?: [
+                "status" => "error",
+                "msg" => "Error HTTP: {$httpCode}",
+                "raw" => $response
+            ];
         }
 
         return [
-            "status" => "200 OK",
-            "requestId" => $requestId,
-            "url" => $link,
-            "detail" => "Informacion guardada correctamente, ID: " . $requestId .
-                " . Enlace y otp enviado por correo correctamente a " .
-                $data['email']
+            "status" => $decode['status'] ?? '200 OK',
+            "requestId" => $decode['requestId'] ?? null,
+            "url" => $decode['url'] ?? null,
+            "detail" => $decode['detail'] ?? null
         ];
-
-
-        // $response = wp_remote_request($url,$args);
-
-        // if(is_wp_error($response)){
-        //     return false;
-        // }
-
-        // $body = wp_remote_retrieve_body($response);
-        // $decode = json_decode($body,true);
-
-        // return [
-        //     "url" => $decode['url'] ?? null
-        // ];
     }
 
 
