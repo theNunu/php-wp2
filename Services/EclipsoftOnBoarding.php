@@ -45,45 +45,45 @@ class EclipsoftOnBoarding
     }
 
 
-    public static function getToken()
-    {
-        try {
-            $basePath = EclipsoftOnBoarding::obtenerBasePath();
-            EclipsoftOnBoarding::defineCRedentials();
-            $url = $basePath . "/api/authenticate";
+    // public static function getToken()
+    // {
+    //     try {
+    //         $basePath = EclipsoftOnBoarding::obtenerBasePath();
+    //         EclipsoftOnBoarding::defineCRedentials();
+    //         $url = $basePath . "/api/authenticate";
 
-            $fields = array(
-                'username' => self::$username,
-                'password' => self::$password,
-            );
+    //         $fields = array(
+    //             'username' => self::$username,
+    //             'password' => self::$password,
+    //         );
 
-            $headers = array(
-                'Content-type' => 'application/json'
-            );
+    //         $headers = array(
+    //             'Content-type' => 'application/json'
+    //         );
 
-            $body = wp_json_encode($fields);
-            $args = array(
-                'body' => $body,
-                'method' => 'POST',
-                'headers' => $headers,
-                'timeout' => 1200,
-            );
-
-
-            $response = wp_remote_request($url, $args);
-            $datatoken = wp_remote_retrieve_body($response);
+    //         $body = wp_json_encode($fields);
+    //         $args = array(
+    //             'body' => $body,
+    //             'method' => 'POST',
+    //             'headers' => $headers,
+    //             'timeout' => 1200,
+    //         );
 
 
-            $token_decode = json_decode($datatoken);
-            $token = $token_decode->id_token;
-            return $token;
-        } catch (\Throwable $th) {
-            return '';
-        }
-    }
+    //         $response = wp_remote_request($url, $args);
+    //         $datatoken = wp_remote_retrieve_body($response);
 
 
-    public static function generateToken()
+    //         $token_decode = json_decode($datatoken);
+    //         $token = $token_decode->id_token;
+    //         return $token;
+    //     } catch (\Throwable $th) {
+    //         return '';
+    //     }
+    // }
+
+
+    public static function generateTokenn() //mi funcion original
     {
         // 🔍 BUSCAR TOKEN GUARDADO
         $token = get_transient('dpti_auth_token');
@@ -122,75 +122,131 @@ class EclipsoftOnBoarding
         // set_transient('dpti_auth_token',$token,20 * MINUTE_IN_SECONDS);
 
         // 🧪 TOKEN 30 SEGUNDOS SOLO PRUEBAS
-        set_transient('dpti_auth_token', $token, 30);
+        // set_transient('dpti_auth_token', $token, 30);
+        set_transient('dpti_auth_token', $token, 1200); // 1200 segundos = 20 minutos Controla cuánto tiempo WordPress lo guarda en caché.
 
         return $token;
     }
-    public static function validateToken()
+
+    public static function generateToken()
     {
-        try {
-            $maxAttempts = 3;
-            $attempt = 1;
-            $success = false;
-            $token = '';
+        // 1️⃣ Revisar si ya existe token en caché
+        $token = get_transient('dpti_auth_token');
 
-            while ($attempt <= $maxAttempts && !$success) {
-                $token = EclipsoftOnBoarding::getToken();
+        if ($token) {
+            return $token;
+        }
 
-                if (!isset($token) || $token == '') {
-                    $attempt++;
-                    sleep(2);
-                } else {
-                    $success = true;
+        $maxAttempts = 3;
+        $attempt = 1;
+        $token = '';
+
+        $url = self::obtenerBasePath() . "/api/authenticate";
+
+        $fields = [
+            'username' => self::$username,
+            'password' => self::$password,
+        ];
+
+        while ($attempt <= $maxAttempts && empty($token)) {
+
+            $response = wp_remote_post($url, [
+                'body' => wp_json_encode($fields),
+                'headers' => [
+                    'Content-Type' => 'application/json'
+                ],
+                'timeout' => 20,
+            ]);
+
+            if (!is_wp_error($response)) {
+
+                $body = wp_remote_retrieve_body($response);
+                $decode = json_decode($body);
+
+                if (isset($decode->id_token) && !empty($decode->id_token)) {
+                    $token = $decode->id_token;
+                    break;
                 }
             }
 
-
-            $basePath = EclipsoftOnBoarding::obtenerBasePath();
-            $url = $basePath . "/api/otp/validate";
-
-
-            $email = sanitize_text_field($_POST['data']['email']);
-            // $telf  = sanitize_text_field($_POST['data']['telf']);
-            // $cod_otp  = sanitize_text_field($_POST['data']['cod_otp']);
-
-
-            $fields = [
-                'email' => $email,
-                // 'otp' => $cod_otp
-            ];
-
-            $headers = array(
-                'Authorization' => "Bearer $token",
-                'Content-type' => 'application/json'
-            );
-
-            $body = wp_json_encode($fields);
-            $args = array(
-                'body' => $body,
-                'method' => 'POST',
-                'headers' => $headers,
-                'timeout' => 100, // 1min de espera
-            );
-
-
-            $response = wp_remote_request($url, $args);
-            $data = wp_remote_retrieve_body($response);
-
-            return $data;
-        } catch (\Throwable $th) {
-            return ["msg" => $th->getMessage()];
+            $attempt++;
+            sleep(2); // esperar 2 segundos antes de reintentar
         }
+
+        if (empty($token)) {
+            return false;
+        }
+
+        // Guardar 20 minutos en caché
+        set_transient('dpti_auth_token', $token, 20 * MINUTE_IN_SECONDS);
+
+        return $token;
     }
+    // public static function validateToken()
+    // {
+    //     try {
+    //         $maxAttempts = 3;
+    //         $attempt = 1;
+    //         $success = false;
+    //         $token = '';
+
+    //         while ($attempt <= $maxAttempts && !$success) {
+    //             $token = EclipsoftOnBoarding::getToken();
+
+    //             if (!isset($token) || $token == '') {
+    //                 $attempt++;
+    //                 sleep(2);
+    //             } else {
+    //                 $success = true;
+    //             }
+    //         }
+
+
+    //         $basePath = EclipsoftOnBoarding::obtenerBasePath();
+    //         $url = $basePath . "/api/otp/validate";
+
+
+    //         $email = sanitize_text_field($_POST['data']['email']);
+    //         // $telf  = sanitize_text_field($_POST['data']['telf']);
+    //         // $cod_otp  = sanitize_text_field($_POST['data']['cod_otp']);
+
+
+    //         $fields = [
+    //             'email' => $email,
+    //             // 'otp' => $cod_otp
+    //         ];
+
+    //         $headers = array(
+    //             'Authorization' => "Bearer $token",
+    //             'Content-type' => 'application/json'
+    //         );
+
+    //         $body = wp_json_encode($fields);
+    //         $args = array(
+    //             'body' => $body,
+    //             'method' => 'POST',
+    //             'headers' => $headers,
+    //             'timeout' => 100, // 1min de espera
+    //         );
+
+
+    //         $response = wp_remote_request($url, $args);
+    //         $data = wp_remote_retrieve_body($response);
+
+    //         return $data;
+    //     } catch (\Throwable $th) {
+    //         return ["msg" => $th->getMessage()];
+    //     }
+    // }
 
     public static function crearSolicitud($data, $token, $file)
     {
-        if (empty($token)) {
-            return [
-                "status" => "error",
-                "msg" => "Token vacío"
-            ];
-        }
+        // if (empty($token)) {
+        //     return [
+        //         "status" => "error",
+        //         "msg" => "Token vacío"
+        //     ];
+        // }
 
         // =========================
         // 1️⃣ VALIDAR MIME REAL
