@@ -8,6 +8,8 @@ use Services\EclipsoftOnBoarding;
  */
 require_once plugin_dir_path(__FILE__) . 'services/Saludar.php';
 require_once plugin_dir_path(__FILE__) . 'services/EclipsoftOnBoarding.php';
+require_once plugin_dir_path(__FILE__) . 'services/vista-bootstrap.php';
+
 
 add_action('wp_ajax_nopriv_dpti_saludar', 'dpti_saludar');
 add_action('wp_ajax_dpti_saludar', 'dpti_saludar');
@@ -125,3 +127,40 @@ function dpti_login()
     // ]);
 
 }
+
+//=====================================================================================
+
+if (!defined('ABSPATH')) exit;
+
+// Iniciar sesión
+add_action('init', function(){
+    if (!session_id()) {
+        session_start();
+    }
+});
+
+// =========================
+// REGISTRAR AJAX (BACKEND)
+// =========================
+
+add_action('wp_ajax_incrementar_contador', 'incrementar_contador_callback');
+add_action('wp_ajax_nopriv_incrementar_contador', 'incrementar_contador_callback');
+
+function incrementar_contador_callback() {
+
+    if (!isset($_SESSION['contador'])) {
+        $_SESSION['contador'] = 0;
+    }
+
+    $_SESSION['contador']++;
+
+    wp_send_json_success([
+        'contador' => $_SESSION['contador'],
+        'mensaje' => "Has hecho clic ".$_SESSION['contador']." veces 😎"
+    ]);
+}
+
+
+add_action('wp_footer', function(){
+    echo '<div style="background:red;color:white;">PLUGIN CARGADooO</div>';
+});
